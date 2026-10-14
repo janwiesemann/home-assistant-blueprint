@@ -1,0 +1,93 @@
+blueprint:
+  domain: automation
+  name: Asterisk - Set DayNight (Call Flow)
+  description: >
+    Sets a Asterisk DayNight (Call Flow) value based on a binary sensor (like 'person', 'device_tracker', 'input_boolean' or 'switch')
+
+    This automation requires the https://github.com/TECH7Fox/asterisk-hass-integration integration to be installed and configured.
+  author: Jan Wiesemann (https://github.com/janwiesemann/home-assistant-blueprint)
+
+  input:
+    tracked_device:
+      name: Device
+      selector:
+        entity:
+          filter:
+            - domain:
+                - device_tracker
+                - person
+                - input_boolean
+                - switch
+          multiple: false
+
+    ami_connected:
+      name: AMI connected entity
+      selector:
+        entity:
+          filter:
+            - domain:
+                - binary_sensor
+                - input_boolean
+                - switch
+          multiple: false
+
+    day_night_index:
+      name: Feature Code Index
+      selector:
+        number:
+          min: 0
+          max: 99
+          mode: box
+
+    additional_triggers:
+      name: Additional Trigger
+      default: []
+      selector:
+        trigger:
+
+mode: queued
+max: 10
+max_exceeded: silent
+
+triggers:
+  - alias: "Trigger tracked device"
+    trigger: state
+    entity_id: !input tracked_device
+    to: null
+
+  - alias: "AMI is conneced chanegd"
+    trigger: state
+    entity_id: !input ami_connected
+
+  - alias: "On Startup"
+    trigger: homeassistant
+    event: start
+
+  - triggers: !input additional_triggers
+
+conditions:
+  - condition: state
+    entity_id: !input ami_connected
+    state:
+      - "on"
+
+variables:
+  day_night_index: !input day_night_index
+  tracked_device: !input tracked_device
+
+actions:
+  - alias: "Update Dialplan"
+    action: asterisk.send_action
+    data:
+      action: Setvar
+      parameters:
+        Variable: "DEVICE_STATE(Custom:DAYNIGHT{{day_night_index}})"
+        Value: "{{ 'NOT_INUSE' if states(tracked_device) in ['on', 'home'] else 'INUSE' }}"
+  - alias: "Update DB"
+    action: asterisk.send_action
+    data:
+      action: DBPut
+      parameters:
+        Family: DAYNIGHT
+        Key: "C{{day_night_index}}"
+        Val: "{{ 'DAY' if states(tracked_device) in ['on', 'home'] else 'NIGHT' }}"
