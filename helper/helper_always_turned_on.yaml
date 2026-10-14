@@ -1,0 +1,68 @@
+blueprint:
+  domain: automation
+  name: Helper - Always turned on
+  description: Ensures, that a Entity is always turned on.
+  author: Jan Wiesemann (https://github.com/janwiesemann/home-assistant-blueprint)
+
+  input:
+    target_entity:
+      name: Target
+      selector:
+        entity:
+          multiple: false
+
+    time_pattern_section:
+      name: (Advanced) Time Pattern
+      collapsed: true
+      description: >
+          Used to configure a regular interval, on which the automation runs. This is used to catch any 'Lazy' changes to the entities state.
+
+          Note: Use the "Time Pattern"-Trigger syntax: Prefix the value with / to match whenever the value is divisible by that number. Use "*" to match any value.
+
+          Note: If you don't want to specify a value, use '0' instead.
+      input:
+        time_pattern_hours:
+          name: Hours
+          default: '*'
+          selector:
+            text:
+        time_pattern_minutes:
+          name: Minutes
+          default: '0'
+          selector:
+            text:
+        time_pattern_seconds:
+          name: Seconds
+          default: '0'
+          selector:
+            text:
+
+mode: single
+
+triggers:
+  - alias: "On Startup"
+    trigger: homeassistant
+    event: start
+
+  - alias: "On State changed to 'Off'"
+    trigger: state
+    entity_id: !input target_entity
+    to: 'off'
+
+  - alias: "On Regular interval"
+    trigger: time_pattern
+    hours: !input time_pattern_hours
+    minutes: !input time_pattern_minutes
+    seconds: !input time_pattern_seconds
+
+conditions:
+  - condition: state
+    entity_id: !input target_entity
+    state: 'off'
+
+actions:
+  - action: homeassistant.turn_on
+    metadata: {}
+    data: {}
+    target:
+      entity_id: !input target_entity
